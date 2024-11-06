@@ -27,7 +27,7 @@ function CurrencyExchange() {
   const [homeCurrency, setHomeCurrency] = useState('USD');
   const [destinationCurrency, setDestinationCurrency] = useState('USD');
   const [items, setItems] = useState([{ name: '', homeCost: '', destinationCost: '' }]);
-    const [totalExpenses, setTotalExpenses] = useState(0);
+  const [totalExpenses, setTotalExpenses] = useState(0);
   const [trips, setTrips] = useState(() => {
     try {
       return JSON.parse(Cookies.get('trips')) || [{ name: 'Trip 1', items: [{ name: '', homeCost: '', destinationCost: '' }], budget: '' }];
@@ -36,23 +36,24 @@ function CurrencyExchange() {
     }
   });
   const [activeTripIndex, setActiveTripIndex] = useState(0);
-  
+
   useEffect(() => {
-    if (budget) {
-      convertCurrency(budget, homeCurrency, destinationCurrency).then(setConvertedBudget);
+    const activeTrip = trips[activeTripIndex];
+    if (activeTrip.budget) {
+      convertCurrency(activeTrip.budget, homeCurrency, destinationCurrency).then(setConvertedBudget);
     }
-  }, [budget, homeCurrency, destinationCurrency]);
-  
+  }, [budget, homeCurrency, destinationCurrency, activeTripIndex]);
+
   useEffect(() => {
     Cookies.set('trips', JSON.stringify(trips), { expires: 3650, path: '' });
   }, [trips]);
-  
+
   const handleBudgetChange = (e) => {
     const newBudget = e.target.value;
     setBudget(newBudget);
     updateTrip(activeTripIndex, { budget: newBudget });
   };
-  
+
   const handleHomeCurrencyChange = (e) => {
     setHomeCurrency(e.target.value);
   };
@@ -87,8 +88,16 @@ function CurrencyExchange() {
     calculateTotalExpenses(newItems);
   };
 
+  const handleQuantityChange = (index, value) => {
+    const newItems = [...items];
+    newItems[index].quantity = Math.max(1, (newItems[index].quantity || 1) + value);
+    setItems(newItems);
+    updateTrip(activeTripIndex, { items: newItems });
+    calculateTotalExpenses(newItems);
+  };
+
   const addItem = () => {
-    const newItems = [...items, { name: '', homeCost: '', destinationCost: '' }];
+    const newItems = [...items, { name: '', homeCost: '', destinationCost: '', quantity: 1 }];
     setItems(newItems);
     updateTrip(activeTripIndex, { items: newItems });
   };
@@ -106,32 +115,45 @@ function CurrencyExchange() {
   };
 
   const addTrip = () => {
-    const newTrips = [...trips, { name: `Trip ${trips.length + 1}`, items: [{ name: '', homeCost: '', destinationCost: '' }], budget: '' }];
+    const newTrip = { name: `Trip ${trips.length + 1}`, items: [{ name: '', homeCost: '', destinationCost: '' }], budget: '' };
+    const newTrips = [...trips, {
+      name: `Trip ${trips.length + 1}`,
+      items: [{ name: '', homeCost: '', destinationCost: '', quantity: 1 }],
+      budget: '',
+      homeCurrency: 'USD',
+      destinationCurrency: 'USD'
+    }];
+    
+    // Clear the current state for the new trip
     setTrips(newTrips);
+    setItems(newTrip.items);
+    setBudget(newTrip.budget);
     setActiveTripIndex(newTrips.length - 1);
   };
+  
 
   const removeTrip = (index) => {
-    const newTrips = trips.filter((_, i) => i !== index); // Remove the selected trip
+    const newTrips = trips.filter((_, i) => i !== index);
   
-    // Update active trip after deletion
-    if (index === activeTripIndex && newTrips.length > 0) {
-      setActiveTripIndex(Math.min(index, newTrips.length - 1)); // Set active to next available trip
-    } else if (newTrips.length === 0) {
-      setActiveTripIndex(0); // If no trips left, reset
+    let newActiveTripIndex = activeTripIndex;
+    if (newTrips.length === 0) {
+      newActiveTripIndex = 0;
+    } else if (index <= activeTripIndex && activeTripIndex > 0) {
+      newActiveTripIndex = activeTripIndex - 1;
     }
   
-    // Update the displayed items and budget
+    setActiveTripIndex(newActiveTripIndex);
     if (newTrips.length > 0) {
-      setItems(newTrips[Math.min(index, newTrips.length - 1)].items);
-      setBudget(newTrips[Math.min(index, newTrips.length - 1)].budget);
+      setItems(newTrips[newActiveTripIndex].items);
+      setBudget(newTrips[newActiveTripIndex].budget);
     } else {
-      setItems([{ name: '', homeCost: '', destinationCost: '' }]); // Reset items
-      setBudget(''); // Reset budget
+      setItems([{ name: '', homeCost: '', destinationCost: '' }]);
+      setBudget('');
     }
   
-    setTrips(newTrips); // Update state
-  };  
+    setTrips(newTrips);
+  };
+  
 
   const updateTrip = (index, updatedData) => {
     const newTrips = [...trips];
@@ -152,56 +174,61 @@ function CurrencyExchange() {
 
   return (
     <div className="currency-exchange">
-      <div className="budget-section">
-        <label>
-          Budget in starting currecncy:
-          <input type="number" value={budget} onChange={handleBudgetChange} />
-        </label>
-        <label>
-          Converting from
-          <select value={homeCurrency} onChange={handleHomeCurrencyChange}>
-            {countries.map((country) => (
-              <option key={country.currency} value={country.currency}>
-                {country.name} ({country.currency}) </option>
-            ))}
-          </select>to
-          <select value={destinationCurrency} onChange={handleDestinationCurrencyChange}>
-            {countries.map((country) => (
-              <option key={country.currency} value={country.currency}>
-                {country.name} ({country.currency})
-              </option>
-            ))}
-          </select>
-        </label>
-        <p>Converted Budget: {convertedBudget} {destinationCurrency}</p>
-      </div>
+      
       <div className="trip-tabs">
         {trips.map((trip, index) => (
-        <div key={index}
-          className={`trip-tab ${index === activeTripIndex ? 'active' : ''}`}
-          onClick={() => switchTrip(index)}
-        >
-        <input type="text"
-          value={trip.name}
-          onChange={(e) => handleTripNameChange(index, e.target.value)}
-        />
-        <button
-          className="trip-remove-button"
-          onClick={(e) => { e.stopPropagation(); removeTrip(index); }}
-        >
-        X
-        </button>
+          <div key={index}
+            className={`trip-tab ${index === activeTripIndex ? 'active' : ''}`}
+            onClick={() => switchTrip(index)}
+          >
+            <p>{trip.name} </p>
+          </div>
+        ))}
+        <button className="add-trip-button" onClick={addTrip}>+</button>
       </div>
-))}
-    <button className="add-trip-button" onClick={addTrip}>+</button>
 
-      </div>
-      <div>
-        <div className="expenses-container">
-        <input class="trip-title" type="text" placeholder='Your trip title'></input>
-        {/* <div className="expenses-list"> */}
+
+      <div className="expenses-container">
+        <div class="trip-inputs">
+          <label>
+            Your budget $&nbsp;
+            <input type="number" value={budget} onChange={handleBudgetChange} />
+          </label>
+          <label>
+            Converting from &nbsp;
+            <select value={homeCurrency} onChange={handleHomeCurrencyChange}>
+              {countries.map((country) => (
+                <option key={country.currency} value={country.currency}>
+                  {country.name} ({country.currency})
+                </option>
+              ))}
+            </select>
+            &nbsp;to&nbsp;
+            <select value={destinationCurrency} onChange={handleDestinationCurrencyChange}>
+              {countries.map((country) => (
+                <option key={country.currency} value={country.currency}>
+                  {country.name} ({country.currency})
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="remove-trip-button" onClick={() => removeTrip(activeTripIndex)}>Remove Trip</button>
+          <p>Converted Budget: {convertedBudget} {destinationCurrency}</p>
+        </div>
+        
+        <div className="expenses-list">
           {items.map((item, index) => (
             <div key={index} className="expense-bar">
+              <div className="quantity-control">
+                <button className="quantity-button" onClick={() => handleQuantityChange(index, -1)}>-</button>
+                <input
+                  type="number"
+                  value={item.quantity || 1}
+                  onChange={(e) => handleQuantityChange(index, parseInt(e.target.value, 10))}
+                  className="quantity-input"
+                />
+                <button className="quantity-button" onClick={() => handleQuantityChange(index, 1)}>+</button>
+              </div>
               <div className="expense-input">
                 <input type="text"
                   value={item.name}
@@ -222,15 +249,11 @@ function CurrencyExchange() {
               <button className="item-remove-button" onClick={() => removeItem(index)}>x</button>
             </div>
           ))}
-          {/* </div> */}
-        <button onClick={addItem}>Add Item</button>
+          <button onClick={addItem}>Add Item</button>
         </div>
-              
 
+        <h3>Total Expenses: {totalExpenses} {homeCurrency}</h3>
       </div>
-      
-      <h3>Total Expenses: {totalExpenses} {homeCurrency}</h3>
-      <h3>Remaining Budget: {budget - totalExpenses} {homeCurrency}</h3>
     </div>
   );
 }

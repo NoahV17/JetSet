@@ -1,0 +1,18 @@
+
+
+.scrollable-container {
+  display: flex;
+}
+
+.trip-thumb {
+  padding: 10px 20px;
+  margin-right: 10px;
+  background-color: #ddd;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.trip-thumb.active {
+  background-color: #333;
+  color: white;
+}

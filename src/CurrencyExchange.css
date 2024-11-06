@@ -74,9 +74,9 @@
 }
 
 .currency-exchange .expenses-container {
-  width: 90%;
+  width: 94%;
   margin: 0%;
-  padding: 0% 5% 5% 5%;
+  padding: 3%;
   background-color: #58a9ff;
   border-radius: 0 0 40px 40px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -93,19 +93,20 @@
 .trip-tabs {
   display: flex;
   margin-bottom: 0px;
-  width: 80%;
+  width: 100%;
   max-width: max-content;
 }
 
 .trip-tab {
-  padding: 0px;
+  padding: 5px;
   margin-right: 10px;
+  margin-bottom: 10px;
   background-color: #58a9ff;
   color: #fff;
-  border-radius: 15px 15px 0 0;
+  border-radius: 15px 15px;
   cursor: pointer;
-  height: auto;
   width: 100px;
+  max-width: 100px;
 }
 
 .trip-tab.active {
@@ -149,34 +150,61 @@
 .currency-exchange .trip-title::placeholder {
   font-size: 1em;
   color: #fff;
+  border-radius: 15px 15px 0 0;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .trip-tabs .add-trip-button {
-  border-radius: 20px;
-  margin-bottom: 0px;
+  border-radius: 0%;
+  margin: 0px;
+  padding: 0px;
   font-size: 2em;
-  padding: 10px 10px 10px 10px;
-  width: 40px;
-  height: 40px;
+  width: 60px;
+  height: 60px;
+  align-items: center;
+  justify-content: center;
 }
 
 .add-trip-button:hover {
   background-color: #0056b3;
 }
 
-.currency-exchange .trip-remove-button {
-  background-color: black;
-  border: solid 1px #fff;
-  color: red;
-  cursor: pointer;
-  padding: 0px;
-  margin: 0px;
-  width: 25px;
-}
 
 .currency-exchange .expense-bar input {
   margin-right: 6%;
   font-size: 1.5em;
   flex: 1;
   width: 20%;
+}
+
+.currency-exchange .trip-inputs {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.expense-bar .quantity-control {
+  width: 10%;
+  padding: 0px;
+  margin: 0px;
+}
+
+.expense-bar .quantity-button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 1em;
+  border-radius: 15px;
+}
+
+.expense-bar .quantity-button:hover {
+  background-color: #0056b3;
+}
+
+.expense-bar .quantity-input {
+  border-width: 0px;
+  border-radius: 4px;
+  
 }
