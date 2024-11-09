@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 import './CurrencyExchange.css';
+import { FaTrash } from 'react-icons/fa';
 
 const countries = [
   { name: 'United States', currency: 'USD' },
@@ -22,27 +23,33 @@ const countries = [
 ];
 
 function CurrencyExchange() {
-  const [budget, setBudget] = useState('');
-  const [convertedBudget, setConvertedBudget] = useState('');
-  const [homeCurrency, setHomeCurrency] = useState('USD');
-  const [destinationCurrency, setDestinationCurrency] = useState('USD');
-  const [items, setItems] = useState([{ name: '', homeCost: '', destinationCost: '' }]);
+  const [items, setItems] = useState([{ name: '', homeCost: '', destinationCost: '', quantity: 1, currencyOption: 'from' }]);
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [trips, setTrips] = useState(() => {
     try {
-      return JSON.parse(Cookies.get('trips')) || [{ name: 'Trip 1', items: [{ name: '', homeCost: '', destinationCost: '' }], budget: '' }];
+      return JSON.parse(Cookies.get('trips')) || [];
     } catch (e) {
-      return [{ name: 'Trip 1', items: [{ name: '', homeCost: '', destinationCost: '' }], budget: '' }];
+      return [];
     }
   });
-  const [activeTripIndex, setActiveTripIndex] = useState(0);
+  const [activeTripIndex, setActiveTripIndex] = useState(-1); // -1 indicates no selected trip
+  const [newTripName, setNewTripName] = useState('');
+  const [newTripBudget, setNewTripBudget] = useState('');
+  const [newTripHomeCurrency, setNewTripHomeCurrency] = useState('USD');
+  const [newTripDestinationCurrency, setNewTripDestinationCurrency] = useState('USD');
 
   useEffect(() => {
-    const activeTrip = trips[activeTripIndex];
-    if (activeTrip.budget) {
-      convertCurrency(activeTrip.budget, homeCurrency, destinationCurrency).then(setConvertedBudget);
+    if (activeTripIndex >= 0) {
+      const activeTrip = trips[activeTripIndex];
+      if (activeTrip.budget) {
+        convertCurrency(activeTrip.budget, activeTrip.homeCurrency, activeTrip.destinationCurrency).then(convertedBudget => {
+          const newTrips = [...trips];
+          newTrips[activeTripIndex].convertedBudget = convertedBudget;
+          setTrips(newTrips);
+        });
+      }
     }
-  }, [budget, homeCurrency, destinationCurrency, activeTripIndex]);
+  }, [trips, activeTripIndex]);
 
   useEffect(() => {
     Cookies.set('trips', JSON.stringify(trips), { expires: 3650, path: '' });
@@ -50,16 +57,15 @@ function CurrencyExchange() {
 
   const handleBudgetChange = (e) => {
     const newBudget = e.target.value;
-    setBudget(newBudget);
     updateTrip(activeTripIndex, { budget: newBudget });
   };
 
   const handleHomeCurrencyChange = (e) => {
-    setHomeCurrency(e.target.value);
+    updateTrip(activeTripIndex, { homeCurrency: e.target.value });
   };
 
   const handleDestinationCurrencyChange = (e) => {
-    setDestinationCurrency(e.target.value);
+    updateTrip(activeTripIndex, { destinationCurrency: e.target.value });
   };
 
   const convertCurrency = async (amount, fromCurrency, toCurrency) => {
@@ -77,83 +83,91 @@ function CurrencyExchange() {
     const newItems = [...items];
     newItems[index][field] = value;
 
-    if (field === 'homeCost' && value) {
-      newItems[index].destinationCost = await convertCurrency(value, homeCurrency, destinationCurrency);
-    } else if (field === 'destinationCost' && value) {
-      newItems[index].homeCost = await convertCurrency(value, destinationCurrency, homeCurrency);
+    if ((field === 'homeCost' || field === 'currency') && newItems[index].homeCost) {
+      const cost = newItems[index].homeCost;
+      const itemCurrency = newItems[index].currency || trips[activeTripIndex]?.homeCurrency || 'USD';
+      newItems[index].destinationCost = await convertCurrency(
+        cost,
+        itemCurrency,
+        trips[activeTripIndex]?.destinationCurrency || 'USD'
+      );
     }
 
     setItems(newItems);
-    updateTrip(activeTripIndex, { items: newItems });
+    if (activeTripIndex >= 0) {
+      updateTrip(activeTripIndex, { items: newItems });
+    }
     calculateTotalExpenses(newItems);
   };
 
-  const handleQuantityChange = (index, value) => {
+  const handleQuantityChange = (index, delta) => {
     const newItems = [...items];
-    newItems[index].quantity = Math.max(1, (newItems[index].quantity || 1) + value);
+    const newQuantity = Math.max(1, (newItems[index].quantity || 1) + delta);
+    newItems[index].quantity = newQuantity;
     setItems(newItems);
-    updateTrip(activeTripIndex, { items: newItems });
+    if (activeTripIndex >= 0) {
+      updateTrip(activeTripIndex, { items: newItems });
+    }
     calculateTotalExpenses(newItems);
   };
 
   const addItem = () => {
-    const newItems = [...items, { name: '', homeCost: '', destinationCost: '', quantity: 1 }];
+    const newItems = [...items, { name: '', homeCost: '', destinationCost: '', quantity: 1, currencyOption: 'from' }];
     setItems(newItems);
-    updateTrip(activeTripIndex, { items: newItems });
+    if (activeTripIndex >= 0) {
+      updateTrip(activeTripIndex, { items: newItems });
+    }
   };
 
   const removeItem = (index) => {
-    const newItems = items.filter((_, i) => i !== index);
-    setItems(newItems);
-    updateTrip(activeTripIndex, { items: newItems });
-    calculateTotalExpenses(newItems);
+    if (items.length > 1) {
+      const newItems = items.filter((_, i) => i !== index);
+      setItems(newItems);
+      if (activeTripIndex >= 0) {
+        updateTrip(activeTripIndex, { items: newItems });
+      }
+      calculateTotalExpenses(newItems);
+    }
   };
 
   const calculateTotalExpenses = (items) => {
-    const total = items.reduce((sum, item) => sum + parseFloat(item.homeCost || 0), 0);
+    const total = items.reduce((sum, item) => {
+      const cost = parseFloat(item.homeCost || 0);
+      const quantity = parseInt(item.quantity || 1, 10);
+      return sum + cost * quantity;
+    }, 0);
     setTotalExpenses(total);
   };
 
   const addTrip = () => {
-    const newTrip = { name: `Trip ${trips.length + 1}`, items: [{ name: '', homeCost: '', destinationCost: '' }], budget: '' };
-    const newTrips = [...trips, {
-      name: `Trip ${trips.length + 1}`,
-      items: [{ name: '', homeCost: '', destinationCost: '', quantity: 1 }],
-      budget: '',
-      homeCurrency: 'USD',
-      destinationCurrency: 'USD'
-    }];
-    
-    // Clear the current state for the new trip
+    const newTrip = {
+      name: newTripName,
+      items: [{ name: '', homeCost: '', destinationCost: '', quantity: 1, currencyOption: 'from' }],
+      budget: newTripBudget,
+      homeCurrency: newTripHomeCurrency,
+      destinationCurrency: newTripDestinationCurrency
+    };
+    const newTrips = [...trips, newTrip];
     setTrips(newTrips);
-    setItems(newTrip.items);
-    setBudget(newTrip.budget);
     setActiveTripIndex(newTrips.length - 1);
+    setNewTripName('');
+    setNewTripBudget('');
+    setNewTripHomeCurrency('USD');
+    setNewTripDestinationCurrency('USD');
   };
-  
 
   const removeTrip = (index) => {
-    const newTrips = trips.filter((_, i) => i !== index);
-  
-    let newActiveTripIndex = activeTripIndex;
-    if (newTrips.length === 0) {
-      newActiveTripIndex = 0;
-    } else if (index <= activeTripIndex && activeTripIndex > 0) {
-      newActiveTripIndex = activeTripIndex - 1;
+    const confirmDelete = window.confirm('Are you sure you want to delete this trip?');
+    if (confirmDelete) {
+      const newTrips = trips.filter((_, i) => i !== index);
+      setTrips(newTrips);
+      if (newTrips.length === 0) {
+        setActiveTripIndex(-1);
+      } else if (index <= activeTripIndex && activeTripIndex > 0) {
+        setActiveTripIndex(activeTripIndex - 1);
+      }
     }
-  
-    setActiveTripIndex(newActiveTripIndex);
-    if (newTrips.length > 0) {
-      setItems(newTrips[newActiveTripIndex].items);
-      setBudget(newTrips[newActiveTripIndex].budget);
-    } else {
-      setItems([{ name: '', homeCost: '', destinationCost: '' }]);
-      setBudget('');
-    }
-  
-    setTrips(newTrips);
   };
-  
 
   const updateTrip = (index, updatedData) => {
     const newTrips = [...trips];
@@ -167,44 +181,57 @@ function CurrencyExchange() {
 
   const switchTrip = (index) => {
     setActiveTripIndex(index);
-    const activeTrip = trips[index];
-    setItems(activeTrip.items);
-    setBudget(activeTrip.budget);
+    if (index >= 0) {
+      const activeTrip = trips[index];
+      setItems(activeTrip.items);
+    } else {
+      setItems([{ name: '', homeCost: '', destinationCost: '', quantity: 1, currencyOption: 'from' }]);
+    }
+  };
+
+  const handleCurrencyOptionChange = (index, option) => {
+    const newItems = [...items];
+    newItems[index].currencyOption = option;
+    if (option === 'from') {
+      newItems[index].currency = trips[activeTripIndex].homeCurrency;
+    } else if (option === 'to') {
+      newItems[index].currency = trips[activeTripIndex].destinationCurrency;
+    }
+    setItems(newItems);
+    updateTrip(activeTripIndex, { items: newItems });
+    calculateTotalExpenses(newItems);
   };
 
   return (
     <div className="currency-exchange">
-      
-      <div className="trip-tabs">
-        {trips.map((trip, index) => (
-          <div key={index}
-            className={`trip-tab ${index === activeTripIndex ? 'active' : ''}`}
-            onClick={() => switchTrip(index)}
-          >
-            <p>{trip.name} </p>
-          </div>
-        ))}
-        <button className="add-trip-button" onClick={addTrip}>+</button>
+      <h2>Budget Planner</h2>
+      <div className="trip-selector">
+        <label>
+          Select Trip:
+          <select value={activeTripIndex} onChange={(e) => switchTrip(parseInt(e.target.value))}>
+            <option value={-1}>No Selected Trip</option>
+            {trips.map((trip, index) => (
+              <option key={index} value={index}>
+                {trip.name}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
-
-
-      <div className="expenses-container">
-        <div class="trip-inputs">
+      {activeTripIndex === -1 ? (
+        <div className="add-trip-form">
+          <h3>Add New Trip</h3>
           <label>
-            Your budget $&nbsp;
-            <input type="number" value={budget} onChange={handleBudgetChange} />
+            Trip Name:
+            <input type="text" value={newTripName} onChange={(e) => setNewTripName(e.target.value)} />
           </label>
           <label>
-            Converting from &nbsp;
-            <select value={homeCurrency} onChange={handleHomeCurrencyChange}>
-              {countries.map((country) => (
-                <option key={country.currency} value={country.currency}>
-                  {country.name} ({country.currency})
-                </option>
-              ))}
-            </select>
-            &nbsp;to&nbsp;
-            <select value={destinationCurrency} onChange={handleDestinationCurrencyChange}>
+            Budget:
+            <input type="number" value={newTripBudget} onChange={(e) => setNewTripBudget(e.target.value)} />
+          </label>
+          <label>
+            Home Currency:
+            <select value={newTripHomeCurrency} onChange={(e) => setNewTripHomeCurrency(e.target.value)}>
               {countries.map((country) => (
                 <option key={country.currency} value={country.currency}>
                   {country.name} ({country.currency})
@@ -212,48 +239,118 @@ function CurrencyExchange() {
               ))}
             </select>
           </label>
-          <button className="remove-trip-button" onClick={() => removeTrip(activeTripIndex)}>Remove Trip</button>
-          <p>Converted Budget: {convertedBudget} {destinationCurrency}</p>
+          <label>
+            Destination Currency:
+            <select value={newTripDestinationCurrency} onChange={(e) => setNewTripDestinationCurrency(e.target.value)}>
+              {countries.map((country) => (
+                <option key={country.currency} value={country.currency}>
+                  {country.name} ({country.currency})
+                </option>
+              ))}
+            </select>
+          </label>
+          <button onClick={addTrip}>Add Trip</button>
         </div>
-        
-        <div className="expenses-list">
-          {items.map((item, index) => (
-            <div key={index} className="expense-bar">
-              <div className="quantity-control">
-                <button className="quantity-button" onClick={() => handleQuantityChange(index, -1)}>-</button>
-                <input
-                  type="number"
-                  value={item.quantity || 1}
-                  onChange={(e) => handleQuantityChange(index, parseInt(e.target.value, 10))}
-                  className="quantity-input"
-                />
-                <button className="quantity-button" onClick={() => handleQuantityChange(index, 1)}>+</button>
+      ) : (
+        <div className="expenses-container">
+          <div className="budget-section">
+            <label>
+              Budget:
+              <input type="number" value={trips[activeTripIndex].budget} onChange={handleBudgetChange} />
+            </label>
+            <label>
+              Home Currency:
+              <select value={trips[activeTripIndex].homeCurrency} onChange={handleHomeCurrencyChange}>
+                {countries.map((country) => (
+                  <option key={country.currency} value={country.currency}>
+                    {country.name} ({country.currency})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Destination Currency:
+              <select value={trips[activeTripIndex].destinationCurrency} onChange={handleDestinationCurrencyChange}>
+                {countries.map((country) => (
+                  <option key={country.currency} value={country.currency}>
+                    {country.name} ({country.currency})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p>Converted Budget: {trips[activeTripIndex].convertedBudget} {trips[activeTripIndex].destinationCurrency}</p>
+          </div>
+          <h3>Expenses</h3>
+          <div className="expenses-header">
+            <span>Item</span>
+            <span>Home Currency Cost</span>
+            <span>Destination Currency Cost</span>
+            <span>Quantity</span>
+            <span>Action</span>
+          </div>
+          <div className="expenses-list">
+            {items.map((item, index) => (
+              <div key={index} className="expense-item">
+                <div className="item-details">
+                  <input
+                    type="text"
+                    value={item.name}
+                    onChange={(e) => handleItemChange(index, 'name', e.target.value)}
+                    placeholder="Item Name"
+                    className="item-name-input"
+                  />
+                  <div className="item-cost">
+                    <input
+                      type="number"
+                      value={item.homeCost}
+                      onChange={(e) => handleItemChange(index, 'homeCost', e.target.value)}
+                      placeholder="Unit Cost"
+                      className="item-cost-input"
+                    />
+                    <div className="currency-toggle">
+                      <label className="switch">
+                        <input
+                          type="checkbox"
+                          checked={item.currencyOption === 'to'}
+                          onChange={() => handleCurrencyOptionChange(index, item.currencyOption === 'from' ? 'to' : 'from')}
+                        />
+                        <span className="slider round">
+                          {item.currencyOption === 'from' ? `${trips[activeTripIndex]?.homeCurrency || 'USD'}` : `${trips[activeTripIndex]?.destinationCurrency || 'USD'}`}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <div className="item-controls">
+                  <button className="remove-item-button" onClick={() => removeItem(index)}>
+                    <FaTrash />
+                  </button>
+                  <div className="item-quantity">
+                    <button onClick={() => handleQuantityChange(index, -1)}>-</button>
+                    <span>{item.quantity}</span>
+                    <button onClick={() => handleQuantityChange(index, 1)}>+</button>
+                  </div>
+                </div>
+                <div className="item-total">
+                  {(
+                    parseFloat(item.homeCost || 0) * parseInt(item.quantity || 1, 10)
+                  ).toFixed(2)}{' '}
+                  {item.currency || trips[activeTripIndex]?.homeCurrency || 'USD'}
+                </div>
               </div>
-              <div className="expense-input">
-                <input type="text"
-                  value={item.name}
-                  onChange={(e) => handleItemChange(index, 'name', e.target.value)}
-                  placeholder="Item Name"
-                />
-                <input type="number"
-                  value={item.homeCost}
-                  onChange={(e) => handleItemChange(index, 'homeCost', e.target.value)}
-                  placeholder="Home Currency Cost"
-                />
-                <input type="number"
-                  value={item.destinationCost}
-                  onChange={(e) => handleItemChange(index, 'destinationCost', e.target.value)}
-                  placeholder="Destination Currency Cost"
-                />
-              </div>
-              <button className="item-remove-button" onClick={() => removeItem(index)}>x</button>
-            </div>
-          ))}
+            ))}
+          </div>
           <button onClick={addItem}>Add Item</button>
         </div>
-
-        <h3>Total Expenses: {totalExpenses} {homeCurrency}</h3>
-      </div>
+      )}
+      {activeTripIndex !== -1 && (
+        <>
+          <h3>Total Expenses: {totalExpenses.toFixed(2)} {trips[activeTripIndex].homeCurrency}</h3>
+          <h3>Remaining Budget: {(trips[activeTripIndex].budget - totalExpenses).toFixed(2)}{' '}
+            {trips[activeTripIndex].homeCurrency}
+          </h3>
+        </>
+      )}
     </div>
   );
 }

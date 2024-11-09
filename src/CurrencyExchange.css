@@ -18,12 +18,6 @@
   font-size: 1.2em;
 }
 
-.currency-exchange input, .currency-exchange select {
-  margin-left: 1px;
-  font-size: 1.5em;
-  width: 100px;
-}
-
 .currency-exchange .budget-section {
   width: 90%;
   padding: 20px;
@@ -82,12 +76,13 @@
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-.expense-input {
-  width: 90%;
-  padding: 15px 0px;
+.item-cost-input {
+  width: 50%;
+  font-size: 1.5em;
+  padding: 5px;
   background-color: #58a9ff;
   border-radius: 40px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.9);
 }
 
 .trip-tabs {
@@ -207,4 +202,144 @@
   border-width: 0px;
   border-radius: 4px;
   
+}
+
+.expense-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid #ccc;
+}
+
+.item-details {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+}
+
+.item-name, .item-cost {
+  flex: 1;
+  margin-right: 10px;
+}
+
+.item-quantity {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 20px;
+  background-color: #78c9ff;
+  padding: 5px 0px;
+}
+
+.item-quantity button {
+  width: 30px;
+  height: 30px;
+  font-size: 1em;
+  margin: 0px 6px 0px 6px;
+}
+
+.item-total {
+  flex: 1;
+  text-align: center;
+}
+
+.item-remove-button {
+  margin-left: 10px;
+}
+
+.item-name-input {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 8px;
+  font-size: 1em;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+  transition: border-color 0.3s;
+}
+
+.item-name-input:focus {
+  border-color: #007bff;
+  outline: none;
+}
+
+
+
+
+.currency-toggle {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 100px;
+  height: 34px;
+  margin-right: 10px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #a04eff;
+  transition: .4s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1em;
+  color: white;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #2196F3;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked + .slider:before {
+  transform: translateX(66px);
+}
+
+/* Rounded sliders */
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+.currency-label {
+  font-size: 1em;
+  color: #333;
+}
+
+input:checked ~ .currency-label {
+  left: -30px;
 }
